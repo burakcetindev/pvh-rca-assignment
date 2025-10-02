@@ -1,0 +1,9 @@
+google-cloud-pubsub
+google-cloud-bigquery
+google-ads
+pytest
+coverage
+pytest-cov
+tabulate
+pandas
+colorama
