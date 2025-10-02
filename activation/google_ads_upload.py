@@ -59,19 +59,21 @@ def prepare_conversion_payload(order):
     """
     
     # Convert event_ts (which is a datetime object) to an ISO string
-    event_ts = getattr(order, "event_ts", "2025-10-01T12:00:00Z")
+    event_ts = getattr(order, "event_ts", None)
     if isinstance(event_ts, datetime):
         event_ts_str = event_ts.isoformat()
+    elif isinstance(event_ts, str):
+        event_ts_str = event_ts
     else:
-        # Fallback for string or default values
-        event_ts_str = str(event_ts)
+        # Provide default event_ts if missing or invalid
+        event_ts_str = "2025-10-01T12:00:00Z"
         
     payload = {
-        "order_id": order.order_id,
+        "order_id": getattr(order, "order_id", "UNKNOWN_ORDER_ID"),
         "gclid": getattr(order, "gclid", "TEST_GCLID"),
         "conversion_action": "ORDER_COMPLETED",
         "conversion_date_time": event_ts_str,
-        "conversion_value": getattr(order, "amount", 0),
+        "conversion_value": getattr(order, "amount", 0) if getattr(order, "amount", None) is not None else 0,
         "currency_code": getattr(order, "currency_code", "USD"),
     }
     return payload
@@ -82,13 +84,42 @@ def batch_upload(orders):
     """
     success_count = 0
     fail_count = 0
+    skipped_count = 0
+    dlq = []
     for order in orders:
+        amount = getattr(order, "amount", None)
+        event_ts = getattr(order, "event_ts", None)
+        gclid = getattr(order, "gclid", None)
+        currency_code = getattr(order, "currency_code", None)
+
+        # Validation before upload
+        if amount is None or amount < 0:
+            logger.warning(f"Skipping order_id={getattr(order, 'order_id', 'UNKNOWN')} due to invalid amount: {amount}")
+            skipped_count += 1
+            dlq.append(order)
+            continue
+        if event_ts is None or (not isinstance(event_ts, datetime) and not isinstance(event_ts, str)):
+            logger.warning(f"Skipping order_id={getattr(order, 'order_id', 'UNKNOWN')} due to missing or invalid event_ts: {event_ts}")
+            skipped_count += 1
+            dlq.append(order)
+            continue
+        # For missing gclid, assign default but log warning
+        if not gclid:
+            logger.warning(f"Order_id={getattr(order, 'order_id', 'UNKNOWN')} missing gclid, assigning default value.")
+            gclid = "TEST_GCLID"
+            setattr(order, "gclid", gclid)
+        # For invalid currency_code, assign default but log warning
+        if currency_code not in ["USD", "EUR", "GBP"]:
+            logger.warning(f"Order_id={getattr(order, 'order_id', 'UNKNOWN')} has invalid currency_code: {currency_code}, assigning default 'USD'.")
+            currency_code = "USD"
+            setattr(order, "currency_code", currency_code)
+        
         payload = prepare_conversion_payload(order)
         if upload_conversion(payload):
             success_count += 1
         else:
             fail_count += 1
-    logger.info(f"Batch upload finished. Success: {success_count}, Failures: {fail_count}")
+    logger.info(f"Batch upload finished. Success: {success_count}, Failures: {fail_count}, Skipped: {skipped_count}")
 
 def main():
     completed_orders = get_completed_orders()

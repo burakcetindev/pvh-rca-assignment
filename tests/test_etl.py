@@ -15,11 +15,14 @@ sample_events = [
 def mock_query_result(events):
     """
     Converts sample_events to objects with attribute access
+    Adds invalid_count attribute defaulting to 0 if not present
     """
     class MockRow:
         def __init__(self, d):
             for k, v in d.items():
                 setattr(self, k, v)
+            if not hasattr(self, 'invalid_count'):
+                self.invalid_count = 0
     return [MockRow(e) for e in events]
 
 @patch("aggregation.etl.getattr")
@@ -34,5 +37,5 @@ def test_run_consolidation(mock_client_cls, mock_getattr):
     # Patch logging to suppress output
     with patch("aggregation.etl.logger") as mock_logger:
         etl.run_consolidation()
-        mock_logger.info.assert_any_call("Starting consolidation query...")
+        mock_logger.info.assert_any_call("Starting consolidation query for valid events...")
         mock_logger.info.assert_any_call("Consolidation finished successfully. Rows affected: 3")

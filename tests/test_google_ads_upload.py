@@ -3,11 +3,12 @@ from unittest.mock import patch, MagicMock
 from activation import google_ads_upload as ga
 
 class DummyOrder:
-    def __init__(self, order_id, status, amount, event_ts):
+    def __init__(self, order_id, status, amount, event_ts, gclid=None):
         self.order_id = order_id
         self.status = status
         self.amount = amount
         self.event_ts = event_ts
+        self.gclid = gclid
 
 def test_prepare_conversion_payload():
     from datetime import datetime, timezone
@@ -24,9 +25,12 @@ def test_prepare_conversion_payload():
 def test_main_calls_upload_conversion(mock_upload, mock_get_orders):
     from datetime import datetime, timezone
     orders = [
-        DummyOrder("order1", "COMPLETED", 10.0, datetime(2025, 10, 1, 12, 0, tzinfo=timezone.utc)),
-        DummyOrder("order2", "COMPLETED", 20.0, datetime(2025, 10, 1, 13, 0, tzinfo=timezone.utc)),
+        DummyOrder("order1", "COMPLETED", 10.0, datetime(2025, 10, 1, 12, 0, tzinfo=timezone.utc), gclid="GCLID1"),
+        DummyOrder("order2", "COMPLETED", 20.0, datetime(2025, 10, 1, 13, 0, tzinfo=timezone.utc), gclid="GCLID2"),
     ]
+    # Add currency_code attribute to each DummyOrder instance
+    for order in orders:
+        order.currency_code = "USD"
     mock_get_orders.return_value = orders
 
     ga.main()

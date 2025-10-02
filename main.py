@@ -8,6 +8,37 @@ from activation import google_ads_upload as ga
 
 init(autoreset=True)
 
+def is_valid_event(event):
+    # Check amount is not None and >= 0
+    amount = event.get("amount")
+    if amount is None or (isinstance(amount, (int, float)) and amount < 0):
+        return False
+
+    # Check status is one of the allowed values
+    status = event.get("status")
+    if status not in ["CREATED", "COMPLETED", "CANCELLED", "FAILED"]:
+        return False
+
+    # Check event_ts is a valid datetime string in the specified format
+    event_ts_str = event.get("timestamp")
+    if not event_ts_str:
+        return False
+    try:
+        datetime.strptime(event_ts_str, "%d/%m/%Y %H:%M:%S")
+    except Exception:
+        return False
+
+    # Check created_at is a valid datetime string in the specified format
+    created_at_str = event.get("created_at")
+    if not created_at_str:
+        return False
+    try:
+        datetime.strptime(created_at_str, "%d/%m/%Y %H:%M:%S")
+    except Exception:
+        return False
+
+    return True
+
 def generate_mock_events(num_events=10, fail_rate=0.1):
     events = []
     base_date = datetime(2025, 9, 1, 12, 0, tzinfo=timezone.utc)
@@ -88,9 +119,24 @@ def run_mock(num_events=10, fail_rate=0.1, show_timeline=False, show_status_metr
     dlq_events = []
 
     print("--- Transformation Step ---")
-    for event in mock_events:
+    for event in mock_events[:num_events]:
+        if not is_valid_event(event):
+            dlq_events.append({"event": event, "error": "Validation failed"})
+            print(Fore.RED + f"DLQ Event: {event.get('id', 'UNKNOWN')} | Error: Validation failed")
+            continue
         try:
             transformed = transformer.transform_order_event(event)
+            if transformed.get("dlq", False):
+                dlq_events.append({"event": event, "error": "Transformer flagged DLQ"})
+                print(Fore.RED + f"DLQ Event: {event.get('id', 'UNKNOWN')} | Error: Transformer flagged DLQ")
+                continue
+            # Ensure created_ts is set to UNKNOWN_TIMESTAMP if missing or invalid
+            created_ts_str = event.get("created_at")
+            try:
+                datetime.strptime(created_ts_str, "%d/%m/%Y %H:%M:%S")
+                transformed["created_ts"] = created_ts_str
+            except Exception:
+                transformed["created_ts"] = "UNKNOWN_TIMESTAMP"
             transformed_rows.append(transformed)
             print(Fore.GREEN + f"Transformed: {transformed['order_id']}")
         except Exception as e:
@@ -98,10 +144,13 @@ def run_mock(num_events=10, fail_rate=0.1, show_timeline=False, show_status_metr
             print(Fore.RED + f"DLQ Event: {event['id'] if 'id' in event else 'UNKNOWN'} | Error: {e}")
 
     print("\n--- Aggregation Step ---")
-    # Aggregate latest status per order
+    # Aggregate latest status per order, exclude DLQ events
     orders = {}
+    dlq_order_ids = {dlq_entry["event"].get("id") for dlq_entry in dlq_events}
     for row in transformed_rows:
         order_id = row["order_id"]
+        if order_id in dlq_order_ids:
+            continue
         if order_id not in orders or row["event_ts"] > orders[order_id]["event_ts"]:
             orders[order_id] = row
 
@@ -139,8 +188,8 @@ def run_mock(num_events=10, fail_rate=0.1, show_timeline=False, show_status_metr
         print("\n--- Order Processing Timeline ---")
         timeline_header = ["Order ID", "Created", "Transformed", "Aggregated", "Google Ads Upload"]
         timeline_rows = []
-        # Build a set of all order IDs from mock_events to include those that failed transform
-        all_order_ids = set(event.get("id") for event in mock_events)
+        # Build a set of all order IDs from mock_events[:num_events] to include those that failed transform
+        all_order_ids = set(event.get("id") for event in mock_events[:num_events])
         for order_id in sorted(all_order_ids):
             # Created stage: always green (event exists)
             created_stage = Fore.GREEN + "✔" + Style.RESET_ALL
@@ -186,7 +235,7 @@ def run_mock(num_events=10, fail_rate=0.1, show_timeline=False, show_status_metr
 
     # Enhanced Metrics Summary
     print("\n--- Metrics Summary ---")
-    print(f"Total Events Processed: {len(mock_events)}")
+    print(f"Total Events Processed: {len(mock_events[:num_events])}")
     print(f"Transformed Events: {len(transformed_rows)}")
     print(f"Aggregated Orders: {len(orders)}")
     print(f"DLQ Events: {len(dlq_events)}")
@@ -197,7 +246,7 @@ def run_mock(num_events=10, fail_rate=0.1, show_timeline=False, show_status_metr
     if show_status_metrics:
         print("\n--- Per-Status Counts ---")
         status_counts = {}
-        for event in mock_events:
+        for event in transformed_rows:
             status = event.get("status") or "UNKNOWN"
             status_counts[status] = status_counts.get(status, 0) + 1
         status_table = [[status, count] for status, count in sorted(status_counts.items())]

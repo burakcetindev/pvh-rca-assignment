@@ -87,6 +87,8 @@ python main.py --mock --events 100 --fail-rate 0.2 --timeline --status-metrics
 - This allows testing the DLQ, aggregation, and Ads upload under stress.
 - Metrics and per-status counts help evaluate performance and resilience.
 
+> **Disclaimer:** Some inconsistencies in mock runs—such as slightly misaligned failure rates or the `created_ts` format—are due to simulated/mock data. These do not reflect issues in the pipeline logic itself. I’ve chosen to share the assignment as-is to focus on the core functionality and processing flow.
+
 ---
 
 ## Aggregation
