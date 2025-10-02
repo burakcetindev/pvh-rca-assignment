@@ -58,7 +58,7 @@ def prepare_conversion_payload(order):
     For demo purposes, using mock values.
     """
     
-    # FIX: Convert event_ts (which is a datetime object) to an ISO string
+    # Convert event_ts (which is a datetime object) to an ISO string
     event_ts = getattr(order, "event_ts", "2025-10-01T12:00:00Z")
     if isinstance(event_ts, datetime):
         event_ts_str = event_ts.isoformat()
