@@ -1,7 +1,7 @@
 import os
 
 # GCP Project and dataset
-PROJECT_ID = os.getenv("GCP_PROJECT_ID", "your-gcp-project")
+PROJECT_ID = os.getenv("GCP_PROJECT_ID", "pvh-gcp-project")
 DATASET = os.getenv("BQ_DATASET", "analytics")
 
 # BigQuery tables

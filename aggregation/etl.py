@@ -9,7 +9,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 logger = logging.getLogger(__name__)
 
 # Load config from environment or defaults
-PROJECT_ID = os.environ.get("PROJECT_ID", "your-gcp-project")
+PROJECT_ID = os.environ.get("PROJECT_ID", "pvh-gcp-project")
 DATASET = os.environ.get("DATASET", "analytics")
 ORDER_EVENTS_TABLE = os.environ.get("ORDER_EVENTS_TABLE", "order_events")
 ORDERS_TABLE = os.environ.get("ORDERS_TABLE", "orders")

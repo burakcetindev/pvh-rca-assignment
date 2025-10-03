@@ -1,5 +1,5 @@
 -- Consolidated orders table: latest valid status per order
-CREATE OR REPLACE TABLE `your-gcp-project.analytics.orders`
+CREATE OR REPLACE TABLE `pvh-gcp-project.analytics.orders`
 PARTITION BY DATE(created_ts)
 CLUSTER BY order_id
 AS
@@ -8,7 +8,7 @@ SELECT
     ARRAY_AGG(STRUCT(status, amount, event_ts, created_ts) 
               ORDER BY event_ts DESC LIMIT 1)[OFFSET(0)].*  -- latest valid event per order
 FROM
-    `your-gcp-project.analytics.order_events`
+    `pvh-gcp-project.analytics.order_events`
 WHERE
     status IS NOT NULL
     AND status != ''

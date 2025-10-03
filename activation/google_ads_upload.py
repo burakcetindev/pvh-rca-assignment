@@ -30,7 +30,7 @@ def upload_conversion(conversion_payload):
         return False
 
 # Config
-PROJECT_ID = os.environ.get("PROJECT_ID", "your-gcp-project")
+PROJECT_ID = os.environ.get("PROJECT_ID", "pvh-gcp-project")
 DATASET = os.environ.get("DATASET", "analytics")
 ORDERS_TABLE = os.environ.get("ORDERS_TABLE", "orders")
 

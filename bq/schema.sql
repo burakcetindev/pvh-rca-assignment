@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS `your-gcp-project.analytics.order_events` (
+CREATE TABLE IF NOT EXISTS `pvh-gcp-project.analytics.order_events` (
     order_id STRING NOT NULL,
     status STRING,
     amount FLOAT64,
